@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Deployment Risk Predictor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+  <div class="bg-white shadow-lg rounded-lg p-8 w-full max-w-xl">
+    <h1 class="text-2xl font-bold mb-6 text-center"> Deployment Risk Predictor</h1>
+
+    <form id="riskForm" class="space-y-4">
+      <div>
+        <label>Total Files Changed</label>
+        <input type="number" name="total_files_changed" required class="w-full border p-2 rounded"/>
+      </div>
+      <div>
+        <label>Total Lines Added</label>
+        <input type="number" name="total_lines_added" required class="w-full border p-2 rounded"/>
+      </div>
+      <div>
+        <label>Total Lines Deleted</label>
+        <input type="number" name="total_lines_deleted" required class="w-full border p-2 rounded"/>
+      </div>
+      <div>
+        <label>Services Affected</label>
+        <input type="number" name="services_affected" required class="w-full border p-2 rounded"/>
+      </div>
+      <div>
+        <label>Test Pass Rate</label>
+        <input type="number" step="0.01" name="test_pass_rate" required class="w-full border p-2 rounded"/>
+      </div>
+      <div>
+        <label>Build Time (in sec)</label>
+        <input type="number" name="build_time_sec" required class="w-full border p-2 rounded"/>
+      </div>
+
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded w-full">
+        Analyze Risk
+      </button>
+    </form>
+
+    <div id="result" class="mt-6 text-center text-lg font-semibold"></div>
+  </div>
+
+  <script>
+    document.getElementById("riskForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const data = Object.fromEntries(formData.entries());
+
+      // Convert to proper types
+      for (const key in data) {
+        data[key] = key === "test_pass_rate" ? parseFloat(data[key]) : parseInt(data[key]);
+      }
+
+      const response = await fetch("http://127.0.0.1:8000/predict-risk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+      const resultDiv = document.getElementById("result");
+
+      if (response.ok) {
+        resultDiv.innerHTML = `
+          Risk Score: <span class="text-blue-600">${result.risk_score}</span><br/>
+          Rollback Decision: 
+          <span class="${result.rollback ? 'text-red-600' : 'text-green-600'} font-bold">
+            ${result.rollback ? ' Trigger Rollback' : ' Safe to Deploy'}
+          </span><br/>
+          <span class="text-gray-600 text-sm">${result.reason}</span>
+        `;
+      } else {
+        resultDiv.innerHTML = `<span class="text-red-500">Error: ${result.detail}</span>`;
+      }
+    });
+  </script>
+</body>
+</html>
